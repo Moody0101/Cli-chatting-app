@@ -1,38 +1,42 @@
 import socket			
 from threading import Thread, active_count
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from time import sleep
-from json import loads
-from playsound import playsound
+from json import loads, dumps
+# from colorama import Fore
+# from playsound import playsound
 
 
-AUDIO = 'audio.mp3'
+# AUDIO = 'audio.mp3'
 
 @dataclass
 class Chatserver:
+	clients: list = field(default_factory=list)
 	PORT: int = 4000
 	SERVER: str = socket.gethostbyname(socket.gethostname())
-	SOCKET: socket = socket.socket()
+	SOCKET: socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	HEADER: int = 10
 	FORMAT: str = "utf-8"
-	DISCONNECTING: str = "!DISCONNEC"
-	
+	DISCONNECTING: str = "!DISCONNECT"
 	
 	def connect(self, conn, address):
-		print(f"NEW CONNECTION  {address}")
-		t = Thread(target=playsound, args=(AUDIO, ))
+		print(f"NEW CONNECTION {address}")
+		self.clients.append(conn)
 		connected = True
 		while connected:
 			msg_len = conn.recv(self.HEADER).decode(self.FORMAT)
 			msg_len = int(msg_len)
 			msg = conn.recv(msg_len).decode(self.FORMAT)
 			msg = loads(msg)
-			print(msg)
-			username, message = msg["name"], msg["msg"]
-			if msg == self.DISCONNECTING:
+			if msg["msg"] == self.DISCONNECTING:
 				connected = False
-			print(f"{username} said: {message}")
-			sleep(40)
+			self.broadcast(msg)
+
+	def broadcast(self, msg):
+		for client in self.clients:
+			msg = dumps(msg)
+			client.send(str(len(msg)).encode(self.FORMAT))
+			client.send(msg.encode(self.FORMAT))
 
 	def start(self):
 		self.bind_()
@@ -42,7 +46,6 @@ class Chatserver:
 			conn, address = self.SOCKET.accept()
 			Thread_ = Thread(target=self.connect, args=(conn, address))
 			Thread_.start()
-			Thread_.join()
 			print(f"Active users: {active_count() - 1}")
 
 	def bind_(self):

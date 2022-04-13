@@ -1,23 +1,28 @@
 import socket
 from dataclasses import dataclass
-from json import dumps
+from json import dumps, loads
 
 
 @dataclass
 class Client:
 	PORT: int = 4000
 	SERVER: str = socket.gethostbyname(socket.gethostname())
-	SOCKET: socket = socket.socket()
+	SOCKET: socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	HEADER: int = 64
-	DISCONNECTING: str = "!DISCONNEC"
+	DISCONNECTING: str = "!DISCONNECT"
 	FORMAT: str = "utf-8"
-	USERNAME: str = None
+	USERNAME: str = ""
 
 	def setup(self):
 		self.login()
 
 	def login(self):
-		self.USERNAME = input("Enter your name :")
+		self.USERNAME = input("Enter your name : ")
+		if len(self.USERNAME) < 2:
+			print("The username shoud have atleast 2 characters")
+			while len(self.USERNAME) < 2:
+				self.USERNAME = input("Enter your name : ")
+				print("The username shoud have atleast 2 characters")
 		print(f"THANKS! {self.USERNAME}")
 
 	def connect(self):
@@ -30,19 +35,30 @@ class Client:
 	def prepareMessage(self):
 		run = True
 		while run:
-			MSG = input(f"Send A Hello to {socket.gethostname()}@{self.SERVER}: ")
-			
+			MSG = input(f"Send msg {socket.gethostname()}@{self.SERVER}: ")
+			if len(MSG) == "": MSG = " "
 			MSG = {
 				"msg": MSG,
 				"name": self.USERNAME
 			}
-
 			self.send(dumps(MSG))
+			self.receiveMessage()
+
+	def receiveMessage(self):
+		
+		msg_len = self.SOCKET.recv(self.HEADER).decode(self.FORMAT)
+		print(msg_len)
+		msg_len = int(msg_len)
+		msg = self.SOCKET.recv(msg_len).decode(self.FORMAT)
+		msg = loads(msg)
+		name, message = msg["name"], msg["msg"]
+		print(f"{name}: {message}")
+
 	def send(self, msg: str):
 		msg = msg.encode(self.FORMAT)
 		self.SOCKET.send(str(len(msg)).encode(self.FORMAT))
 		self.SOCKET.send(msg)
-		print("Sent")
+		
 
 	@property
 	def properties(self):
